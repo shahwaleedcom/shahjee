@@ -1,0 +1,489 @@
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: green; icon-glyph: magic;
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: gray; icon-glyph: magic;
+const ACCOUNTS_FILE = "accounts.json";
+const TRANSACTIONS_FILE = "transactions.json";
+
+// Function to load accounts from the file
+function loadAccounts() {
+  try {
+    let fileManager = FileManager.iCloud();
+    let accountsPath = fileManager.joinPath(fileManager.documentsDirectory(), ACCOUNTS_FILE);
+    
+    if (fileManager.fileExists(accountsPath)) {
+      let accountsData = fileManager.readString(accountsPath);
+      console.log("Loaded accounts from file:", accountsData);
+      return JSON.parse(accountsData);
+    } else {
+      return {};
+    }
+  } catch (error) {
+    console.error("Error loading accounts:", error);
+    return {};
+  }
+}
+
+// Function to save accounts to the file
+function saveAccounts() {
+  try {
+    let fileManager = FileManager.iCloud();
+    let accountsPath = fileManager.joinPath(fileManager.documentsDirectory(), ACCOUNTS_FILE);
+    
+    let accountsData = JSON.stringify(accounts);
+    console.log("Saving accounts to file:", accountsData);
+    fileManager.writeString(accountsPath, accountsData);
+  } catch (error) {
+    console.error("Error saving accounts:", error);
+  }
+}
+
+// Function to load transactions from the file
+function loadTransactions() {
+  try {
+    let fileManager = FileManager.iCloud();
+    let transactionsPath = fileManager.joinPath(fileManager.documentsDirectory(), TRANSACTIONS_FILE);
+    
+    if (fileManager.fileExists(transactionsPath)) {
+      let transactionsData = fileManager.readString(transactionsPath);
+      console.log("Loaded transactions from file:", transactionsData);
+      return JSON.parse(transactionsData);
+    } else {
+      return [];
+    }
+  } catch (error) {
+    console.error("Error loading transactions:", error);
+    return [];
+  }
+}
+
+// Function to save transactions to the file
+function saveTransactions() {
+  try {
+    let fileManager = FileManager.iCloud();
+    let transactionsPath = fileManager.joinPath(fileManager.documentsDirectory(), TRANSACTIONS_FILE);
+    
+    let transactionsData = JSON.stringify(transactions);
+    console.log("Saving transactions to file:", transactionsData);
+    fileManager.writeString(transactionsPath, transactionsData);
+  } catch (error) {
+    console.error("Error saving transactions:", error);
+  }
+}
+
+let accounts = loadAccounts();
+let transactions = loadTransactions();
+
+// Function to add a new account
+async function addAccount() {
+  let cb = new CallbackURL("shortcuts://run-shortcut");
+  cb.addParameter("name", "EnterAccountName");
+  
+  let result = await cb.open();
+  if (result) {
+    let accountName = result.result;
+    console.log("Entered account name:", accountName);
+    if (accountName in accounts) {
+      let alert = new Alert();
+      alert.title = "Error";
+      alert.message = "Account already exists.";
+      alert.addAction("OK");
+      await alert.present();
+    } else {
+      accounts[accountName] = 0;
+      saveAccounts();
+      let alert = new Alert();
+      alert.title = "Success";
+      alert.message = `Account '${accountName}' added.`;
+      alert.addAction("OK");
+      await alert.present();
+    }
+  } else {
+    console.log("No result from shortcut for adding account.");
+  }
+}
+
+// Function to edit an account name
+async function editAccount() {
+  if (Object.keys(accounts).length === 0) {
+    let errorAlert = new Alert();
+    errorAlert.title = "Error";
+    errorAlert.message = "No accounts to edit.";
+    errorAlert.addAction("OK");
+    await errorAlert.present();
+    return;
+  }
+
+  let alert = new Alert();
+  alert.title = "Edit Account";
+  alert.message = "Select an account to edit:";
+  Object.keys(accounts).forEach(account => alert.addAction(account));
+  
+  let accountIndex = await alert.presentSheet();
+  let accountName = Object.keys(accounts)[accountIndex];
+  console.log("Selected account to edit:", accountName);
+
+  let cb = new CallbackURL("shortcuts://run-shortcut");
+  cb.addParameter("name", "EnterNewAccountName");
+  
+  let result = await cb.open();
+  if (result) {
+    let newAccountName = result.result;
+    console.log("Entered new account name:", newAccountName);
+    if (newAccountName in accounts) {
+      let errorAlert = new Alert();
+      errorAlert.title = "Error";
+      errorAlert.message = "Account with the new name already exists.";
+      errorAlert.addAction("OK");
+      await errorAlert.present();
+    } else {
+      accounts[newAccountName] = accounts[accountName];
+      delete accounts[accountName];
+      saveAccounts();
+      let successAlert = new Alert();
+      successAlert.title = "Success";
+      successAlert.message = `Account '${accountName}' renamed to '${newAccountName}'.`;
+      successAlert.addAction("OK");
+      await successAlert.present();
+    }
+  } else {
+    console.log("No result from shortcut for editing account.");
+  }
+}
+
+// Function to delete an account
+async function deleteAccount() {
+  if (Object.keys(accounts).length === 0) {
+    let errorAlert = new Alert();
+    errorAlert.title = "Error";
+    errorAlert.message = "No accounts to delete.";
+    errorAlert.addAction("OK");
+    await errorAlert.present();
+    return;
+  }
+
+  let alert = new Alert();
+  alert.title = "Delete Account";
+  alert.message = "Select an account to delete:";
+  Object.keys(accounts).forEach(account => alert.addAction(account));
+  
+  let accountIndex = await alert.presentSheet();
+  let accountName = Object.keys(accounts)[accountIndex];
+  console.log("Selected account to delete:", accountName);
+
+  delete accounts[accountName];
+  saveAccounts();
+
+  let successAlert = new Alert();
+  successAlert.title = "Success";
+  successAlert.message = `Account '${accountName}' deleted.`;
+  successAlert.addAction("OK");
+  await successAlert.present();
+}
+
+// Function to add income to an account
+async function addIncome() {
+  if (Object.keys(accounts).length === 0) {
+    let errorAlert = new Alert();
+    errorAlert.title = "Error";
+    errorAlert.message = "No accounts available to add income.";
+    errorAlert.addAction("OK");
+    await errorAlert.present();
+    return;
+  }
+
+  let alert = new Alert();
+  alert.title = "Add Income";
+  alert.message = "Select an account:";
+  Object.keys(accounts).forEach(account => alert.addAction(account));
+  
+  let accountIndex = await alert.presentSheet();
+  let accountName = Object.keys(accounts)[accountIndex];
+  console.log("Selected account:", accountName);
+
+  let cb = new CallbackURL("shortcuts://run-shortcut");
+  cb.addParameter("name", "EnterAmount");
+  
+  let result = await cb.open();
+  if (result) {
+    let amount = parseFloat(result.result);
+    console.log("Entered amount:", amount);
+    if (isNaN(amount) || amount <= 0) {
+      let errorAlert = new Alert();
+      errorAlert.title = "Error";
+      errorAlert.message = "Invalid amount entered.";
+      errorAlert.addAction("OK");
+      await errorAlert.present();
+      return;
+    }
+    
+    accounts[accountName] += amount;
+
+    // Record the transaction
+    let transaction = {
+      type: 'income',
+      account: accountName,
+      amount: amount,
+      date: new Date().toISOString()
+    };
+    transactions.push(transaction);
+    saveTransactions();
+    
+    saveAccounts();
+    
+    let successAlert = new Alert();
+    successAlert.title = "Success";
+    successAlert.message = `Added income of ${amount} to '${accountName}'.`;
+    successAlert.addAction("OK");
+    await successAlert.present();
+  } else {
+    console.log("No result from shortcut for entering amount.");
+  }
+}
+
+// Function to add expense to an account
+async function addExpense() {
+  if (Object.keys(accounts).length === 0) {
+    let errorAlert = new Alert();
+    errorAlert.title = "Error";
+    errorAlert.message = "No accounts available to add expense.";
+    errorAlert.addAction("OK");
+    await errorAlert.present();
+    return;
+  }
+
+  let alert = new Alert();
+  alert.title = "Add Expense";
+  alert.message = "Select an account:";
+  Object.keys(accounts).forEach(account => alert.addAction(account));
+  
+  let accountIndex = await alert.presentSheet();
+  let accountName = Object.keys(accounts)[accountIndex];
+  console.log("Selected account:", accountName);
+
+  let cb = new CallbackURL("shortcuts://run-shortcut");
+  cb.addParameter("name", "EnterAmount");
+  
+  let result = await cb.open();
+  if (result) {
+    let amount = parseFloat(result.result);
+    console.log("Entered amount:", amount);
+    if (isNaN(amount) || amount <= 0) {
+      let errorAlert = new Alert();
+      errorAlert.title = "Error";
+      errorAlert.message = "Invalid amount entered.";
+      errorAlert.addAction("OK");
+      await errorAlert.present();
+      return;
+    }
+    
+    accounts[accountName] -= amount;
+
+    // Record the transaction
+    let transaction = {
+      type: 'expense',
+      account: accountName,
+      amount: amount,
+      date: new Date().toISOString()
+    };
+    transactions.push(transaction);
+    saveTransactions();
+    
+    saveAccounts();
+    
+    let successAlert = new Alert();
+    successAlert.title = "Success";
+    successAlert.message = `Added expense of ${amount} to '${accountName}'.`;
+    successAlert.addAction("OK");
+    await successAlert.present();
+  } else {
+    console.log("No result from shortcut for entering amount.");
+  }
+}
+
+// Function to transfer amount between accounts
+async function transferAmount() {
+  console.log("Accounts before transfer:", accounts);
+
+  if (Object.keys(accounts).length < 2) {
+    let errorAlert = new Alert();
+    errorAlert.title = "Error";
+    errorAlert.message = "You need at least two accounts to transfer funds.";
+    errorAlert.addAction("OK");
+    await errorAlert.present();
+    return;
+  }
+
+  let alert = new Alert();
+  alert.title = "Transfer Amount";
+  alert.message = "Select source account:";
+  Object.keys(accounts).forEach(account => alert.addAction(account));
+  
+  let sourceAccountIndex = await alert.presentSheet();
+  let sourceAccount = Object.keys(accounts)[sourceAccountIndex];
+  console.log("Selected source account:", sourceAccount);
+
+  alert = new Alert();
+  alert.title = "Transfer Amount";
+  alert.message = "Select destination account:";
+  Object.keys(accounts).forEach(account => alert.addAction(account));
+  
+  let destinationAccountIndex = await alert.presentSheet();
+  let destinationAccount = Object.keys(accounts)[destinationAccountIndex];
+  console.log("Selected destination account:", destinationAccount);
+
+  if (sourceAccount === destinationAccount) {
+    let errorAlert = new Alert();
+    errorAlert.title = "Error";
+    errorAlert.message = "Source and destination accounts cannot be the same.";
+    errorAlert.addAction("OK");
+    await errorAlert.present();
+    return;
+  }
+  
+  let cb = new CallbackURL("shortcuts://run-shortcut");
+  cb.addParameter("name", "EnterAmount");
+  
+  let result = await cb.open();
+  if (result) {
+    let amount = parseFloat(result.result);
+    console.log("Entered amount:", amount);
+    if (isNaN(amount) || amount <= 0) {
+      let errorAlert = new Alert();
+      errorAlert.title = "Error";
+      errorAlert.message = "Invalid amount entered.";
+      errorAlert.addAction("OK");
+      await errorAlert.present();
+      return;
+    }
+    
+    accounts[sourceAccount] -= amount;
+    accounts[destinationAccount] += amount;
+
+    // Record the transaction
+    let transaction = {
+      type: 'transfer',
+      from: sourceAccount,
+      to: destinationAccount,
+      amount: amount,
+      date: new Date().toISOString()
+    };
+    transactions.push(transaction);
+    saveTransactions();
+    
+    saveAccounts();
+    
+    let successAlert = new Alert();
+    successAlert.title = "Success";
+    successAlert.message = `Transferred ${amount} from '${sourceAccount}' to '${destinationAccount}'.`;
+    successAlert.addAction("OK");
+    await successAlert.present();
+  } else {
+    console.log("No result from shortcut for entering amount.");
+  }
+}
+
+// Function to generate a report
+async function generateReport() {
+  if (Object.keys(accounts).length === 0) {
+    let alert = new Alert();
+    alert.title = "No Accounts";
+    alert.message = "No accounts available to generate a report.";
+    alert.addAction("OK");
+    await alert.present();
+    return;
+  }
+
+  let report = "Account Balances:\n\n";
+  for (let account in accounts) {
+    report += `${account}: ${accounts[account]}\n`;
+  }
+  
+  let alert = new Alert();
+  alert.title = "Report";
+  alert.message = report;
+  alert.addAction("OK");
+  await alert.present();
+}
+
+// Function to format date to AM/PM format
+function formatDateToAMPM(dateStr) {
+  let date = new Date(dateStr);
+  let hours = date.getHours();
+  let minutes = date.getMinutes();
+  let ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  minutes = minutes < 10 ? '0' + minutes : minutes;
+  let strTime = hours + ':' + minutes + ' ' + ampm;
+  return date.toLocaleDateString() + ' ' + strTime;
+}
+
+// Function to view transaction history
+async function viewTransactions() {
+  if (transactions.length === 0) {
+    let alert = new Alert();
+    alert.title = "No Transactions";
+    alert.message = "No transactions available.";
+    alert.addAction("OK");
+    await alert.present();
+    return;
+  }
+
+  let report = "Transaction History:\n\n";
+  transactions.forEach(transaction => {
+    report += `Date: ${formatDateToAMPM(transaction.date)}\nType: ${transaction.type}\n`;
+    if (transaction.type === 'transfer') {
+      report += `From: ${transaction.from}\nTo: ${transaction.to}\n`;
+    } else {
+      report += `Account: ${transaction.account}\n`;
+    }
+    report += `Amount: ${transaction.amount}\n\n`;
+  });
+
+  let alert = new Alert();
+  alert.title = "Transactions";
+  alert.message = report;
+  alert.addAction("OK");
+  await alert.present();
+}
+
+// Main Menu
+async function mainMenu() {
+  let alert = new Alert();
+  alert.title = "Account Manager";
+  alert.addAction("Add Account");
+  alert.addAction("Edit Account");
+  alert.addAction("Delete Account");
+  alert.addAction("Add Income");
+  alert.addAction("Add Expense");
+  alert.addAction("Transfer Amount");
+  alert.addAction("Generate Report");
+  alert.addAction("View Transactions");
+  alert.addCancelAction("Exit");
+  
+  let response = await alert.presentSheet();
+  
+  if (response === 0) {
+    await addAccount();
+  } else if (response === 1) {
+    await editAccount();
+  } else if (response === 2) {
+    await deleteAccount();
+  } else if (response === 3) {
+    await addIncome();
+  } else if (response === 4) {
+    await addExpense();
+  } else if (response === 5) {
+    await transferAmount();
+  } else if (response === 6) {
+    await generateReport();
+  } else if (response === 7) {
+    await viewTransactions();
+  }
+}
+
+// Run the main menu
+await mainMenu();
